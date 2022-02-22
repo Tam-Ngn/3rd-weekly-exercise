@@ -81,33 +81,95 @@ These exercises will reiterate what you learned in the "Expanding the data wrang
   1. Summarize the `garden_harvest` data to find the total harvest weight in pounds for each vegetable and day of week (HINT: use the `wday()` function from `lubridate`). Display the results so that the vegetables are rows but the days of the week are columns.
 
 ```{r}
-
+garden_harvest %>% 
+  mutate(day_of_week = wday(date,label = TRUE, abbr= TRUE)) %>%
+  group_by(vegetable, day_of_week) %>% 
+  summarize(total_harvest = sum(weight)*0.00220462) %>% 
+  pivot_wider(names_from = day_of_week,
+              values_from = total_harvest) 
 ```
 
   2. Summarize the `garden_harvest` data to find the total harvest in pound for each vegetable variety and then try adding the plot from the `garden_planting` table. This will not turn out perfectly. What is the problem? How might you fix it?
 
 ```{r}
+garden_harvest %>% 
+  group_by(vegetable, variety) %>% 
+  summarize(total_harvest = sum(weight)*0.00220462) %>% 
+  left_join(garden_planting,
+            by = c("vegetable","variety"))
+```
+Problem: the garden_harvest data doesn't have the *plot* variable. Therefore for every row of vegetable, R added additional rows to correspond to the plots in garden_planting, resulting in a longer dataset.
 
+Solution: I take only the first date each vegetable and variety was planted.
+
+```{r}
+garden_planting_min <- garden_planting %>% 
+  group_by(vegetable,variety) %>% 
+  summarize(min_date = min(date))
+```
+```{r}
+garden_harvest %>% 
+  group_by(vegetable, variety) %>% 
+  summarize(total_harvest = sum(weight)*0.00220462) %>% 
+  left_join(garden_planting_min,
+            by = c("vegetable","variety"))
 ```
 
-  3. I would like to understand how much money I "saved" by gardening, for each vegetable type. Describe how I could use the `garden_harvest` and `garden_spending` datasets, along with data from somewhere like [this](https://products.wholefoodsmarket.com/search?sort=relevance&store=10542) to answer this question. You can answer this in words, referencing various join functions. You don't need R code but could provide some if it's helpful.
 
+
+  3. I would like to understand how much money I "saved" by gardening, for each vegetable type. Describe how I could use the `garden_harvest` and `garden_spending` datasets, along with data from somewhere like [this](https://products.wholefoodsmarket.com/search?sort=relevance&store=10542) to answer this question. You can answer this in words, referencing various join functions. You don't need R code but could provide some if it's helpful.
+  
+We find the total weight in pounds for each vegetable and its variety. Then we multiply that sum by the cost after tax. Since some of the vegetable varieties in the garden_harvest data don't have a match in the garden_spending, we might have to look elsewhere on the internet to find their prices.
+  
+```{r}
+garden_harvest %>% 
+  group_by(vegetable, variety) %>% 
+  summarize(total_weight = sum(weight)*0.00220462) %>%
+  inner_join(garden_spending,
+            by = c("vegetable","variety"))
+```
+  
   4. Subset the data to tomatoes. Reorder the tomato varieties from smallest to largest first harvest date. Create a barplot of total harvest in pounds for each variety, in the new order.CHALLENGE: add the date near the end of the bar. (This is probably not a super useful graph because it's difficult to read. This is more an exercise in using some of the functions you just learned.)
 
 ```{r}
+garden_harvest %>% 
+  filter(vegetable =="tomatoes") %>% 
+  group_by(variety) %>% 
+  summarize(first_harvest_date = min(date),total_weight_pound = sum(weight*0.00220462)) %>% 
+  arrange(first_harvest_date) %>% 
+  ggplot(aes(x = total_weight_pound, 
+             y = fct_rev(fct_reorder(variety, first_harvest_date))))+
+  geom_col()+
+  labs(title = "Tomato varieties and their total harvests",
+       y = "",
+       x = "total weight in pounds")
+  
+  
 
+  
+ 
 ```
 
   5. In the `garden_harvest` data, create two new variables: one that makes the varieties lowercase and another that finds the length of the variety name. Arrange the data by vegetable and length of variety name (smallest to largest), with one row for each vegetable variety. HINT: use `str_to_lower()`, `str_length()`, and `distinct()`.
   
 ```{r}
-
+garden_harvest %>% 
+  distinct(vegetable, variety) %>% 
+  mutate(lower_case_name = str_to_lower(variety),
+         variety_length = str_length(variety)) %>% 
+  select(-variety) %>% 
+  arrange(variety_length) 
+  
 ```
 
   6. In the `garden_harvest` data, find all distinct vegetable varieties that have "er" or "ar" in their name. HINT: `str_detect()` with an "or" statement (use the | for "or") and `distinct()`.
 
 ```{r}
-
+garden_harvest %>% 
+  distinct(variety) %>% 
+  mutate(er_or_ar = str_detect(variety,"er|ar")) %>% 
+  filter(er_or_ar == "TRUE")
+  
 ```
 
 
@@ -147,26 +209,59 @@ It's natural to expect that bikes are rented more at some times of day, some day
   7. A density plot, which is a smoothed out histogram, of the events versus `sdate`. Use `geom_density()`.
   
 ```{r}
-
+Trips %>% 
+  ggplot(aes(x = sdate))+
+  geom_density()+
+   labs(title = "Ridership according to date",
+       y = "",
+       x = "")
 ```
+  
+Interpretation: There is no data for the months of Jan through September. Within the observed time frame, ridership increases in October, stays relatively higher throughout the month and starts to decline dramatically as winter comes.
   
   8. A density plot of the events versus time of day.  You can use `mutate()` with `lubridate`'s  `hour()` and `minute()` functions to extract the hour of the day and minute within the hour from `sdate`. Hint: A minute is 1/60 of an hour, so create a variable where 3:30 is 3.5 and 3:45 is 3.75.
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), minute_of_day = minute(sdate), time_of_day = hour_of_day + minute_of_day/60) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density()+
+  labs(title = "Ridership according to time of day",
+       y = "",
+       x = "")
 ```
+  Interpretation: On a day, ridership is highest in daytime between 7am and 5pm.
   
   9. A bar graph of the events versus day of the week. Put day on the y-axis.
   
 ```{r}
-
+Trips %>% 
+  mutate(day_of_week = fct_rev(fct_infreq(wday(sdate, label = TRUE)))) %>% 
+  ggplot(aes(y = day_of_week))+
+  geom_bar()+
+  labs(title = "Ridership according to day of week",
+       y = "",
+       x = "")
 ```
+  Interpretation: There seems to be more riders on the weekdays than there is on the weekends.
   
   10. Facet your graph from exercise 8. by day of the week. Is there a pattern?
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), 
+         minute_of_day = minute(sdate), 
+         time_of_day = hour_of_day + minute_of_day/60,
+         day_of_week = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density()+
+  facet_wrap(vars(day_of_week))+
+  labs(title = "Ridership according to day of week",
+       y = "",
+       x = "")
 ```
+  Pattern: Ridership for weekdays looks almost similar, there is a trough during noontime. On the other hand, ridership for weekends seems to be highest during noontime, taking a concave down shape.
+  
   
 The variable `client` describes whether the renter is a regular user (level `Registered`) or has not joined the bike-rental organization (`Causal`). The next set of exercises investigate whether these two different categories of users show different rental behavior and how `client` interacts with the patterns you found in the previous exercises. 
 
