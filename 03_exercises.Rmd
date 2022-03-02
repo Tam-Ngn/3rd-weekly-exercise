@@ -21,6 +21,7 @@ library(gardenR)       # for Lisa's garden data
 library(lubridate)     # for date manipulation
 library(ggthemes)      # for even more plotting themes
 library(geofacet)      # for special faceting with US map layout
+library(stringr)       
 theme_set(theme_minimal())       # My favorite ggplot() theme :)
 ```
 
@@ -143,11 +144,6 @@ garden_harvest %>%
   labs(title = "Tomato varieties and their total harvests",
        y = "",
        x = "total weight in pounds")
-  
-  
-
-  
- 
 ```
 
   5. In the `garden_harvest` data, create two new variables: one that makes the varieties lowercase and another that finds the length of the variety name. Arrange the data by vegetable and length of variety name (smallest to largest), with one row for each vegetable variety. HINT: use `str_to_lower()`, `str_length()`, and `distinct()`.
@@ -158,8 +154,7 @@ garden_harvest %>%
   mutate(lower_case_name = str_to_lower(variety),
          variety_length = str_length(variety)) %>% 
   select(-variety) %>% 
-  arrange(variety_length) 
-  
+  arrange(variety_length)
 ```
 
   6. In the `garden_harvest` data, find all distinct vegetable varieties that have "er" or "ar" in their name. HINT: `str_detect()` with an "or" statement (use the | for "or") and `distinct()`.
@@ -169,7 +164,6 @@ garden_harvest %>%
   distinct(variety) %>% 
   mutate(er_or_ar = str_detect(variety,"er|ar")) %>% 
   filter(er_or_ar == "TRUE")
-  
 ```
 
 
@@ -195,7 +189,7 @@ Here is the code to read in the data. We do this a little differently than usual
 
 ```{r cache=TRUE}
 data_site <- 
-  "https://www.macalester.edu/~dshuman1/data/112/2014-Q4-Trips-History-Data-Small.rds" 
+  "https://www.macalester.edu/~dshuman1/data/112/2014-Q4-Trips-History-Data.rds" 
 Trips <- readRDS(gzcon(url(data_site)))
 Stations<-read_csv("http://www.macalester.edu/~dshuman1/data/112/DC-Stations.csv")
 ```
@@ -213,11 +207,11 @@ Trips %>%
   ggplot(aes(x = sdate))+
   geom_density()+
    labs(title = "Ridership according to date",
-       y = "",
+       y = "", 
        x = "")
 ```
   
-Interpretation: There is no data for the months of Jan through September. Within the observed time frame, ridership increases in October, stays relatively higher throughout the month and starts to decline dramatically as winter comes.
+Interpretation: There is no data for the months of Jan through September. Within the observed time frame, ridership increases in October, stays relatively high throughout the month and starts to decline dramatically as winter comes.
   
   8. A density plot of the events versus time of day.  You can use `mutate()` with `lubridate`'s  `hour()` and `minute()` functions to extract the hour of the day and minute within the hour from `sdate`. Hint: A minute is 1/60 of an hour, so create a variable where 3:30 is 3.5 and 3:45 is 3.75.
   
@@ -230,7 +224,7 @@ Trips %>%
        y = "",
        x = "")
 ```
-  Interpretation: On a day, ridership is highest in daytime between 7am and 5pm.
+  Interpretation: On a day, ridership is highest in daytime between 7am and 5pm. It also declines during noon and the afternoon
   
   9. A bar graph of the events versus day of the week. Put day on the y-axis.
   
@@ -268,39 +262,124 @@ The variable `client` describes whether the renter is a regular user (level `Reg
   11. Change the graph from exercise 10 to set the `fill` aesthetic for `geom_density()` to the `client` variable. You should also set `alpha = .5` for transparency and `color=NA` to suppress the outline of the density function.
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), 
+         minute_of_day = minute(sdate), 
+         time_of_day = hour_of_day + minute_of_day/60,
+         day_of_week = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density(aes(fill = client),color = NA, alpha = .5)+
+  facet_wrap(vars(day_of_week))+
+  labs(title = "Ridership by types of riders according to day of week",
+       y = "",
+       x = "")
 ```
 
   12. Change the previous graph by adding the argument `position = position_stack()` to `geom_density()`. In your opinion, is this better or worse in terms of telling a story? What are the advantages/disadvantages of each?
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), 
+         minute_of_day = minute(sdate), 
+         time_of_day = hour_of_day + minute_of_day/60,
+         day_of_week = wday(sdate, label = TRUE)) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density(aes(fill = client),color = NA, alpha = .5, position = position_stack())+
+  facet_wrap(vars(day_of_week))+
+  labs(title = "Ridership by types of riders (stacked) according to day of week",
+       y = "",
+       x = "")
 ```
+  This graph might be better at telling a story because it looks nicer.
+  
+  Graph 11:
+  + advantages: we can tell the differences at specific times.
+  ///
+  + disadvantage: if there were many filled density lines superimposed, it would look confusing.
+  
+  Graph 12: 
+  + advantages: solves the disadvantage of graph 11
+  ///
+  + disadvantages: it takes more time to compare the differences.
+  
   
   13. In this graph, go back to using the regular density plot (without `position = position_stack()`). Add a new variable to the dataset called `weekend` which will be "weekend" if the day is Saturday or Sunday and  "weekday" otherwise (HINT: use the `ifelse()` function and the `wday()` function from `lubridate`). Then, update the graph from the previous problem by faceting on the new `weekend` variable. 
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), 
+         minute_of_day = minute(sdate), 
+         time_of_day = hour_of_day + minute_of_day/60,
+         day_of_week = wday(sdate, label = TRUE),
+         weekend = if_else(day_of_week == c("Sat","Sun"),"weekend","weekday" )) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density(aes(fill = client),color = NA, alpha = .5)+
+  facet_wrap(vars(weekend))+
+  labs(title = "The types of ridership according to weekday or weekend ",
+       y = "",
+       x = "")
 ```
   
-  14. Change the graph from the previous problem to facet on `client` and fill with `weekday`. What information does this graph tell you that the previous didn't? Is one graph better than the other?
+  14. Change the graph from the previous problem to facet on `client` and fill with `weekend`. What information does this graph tell you that the previous didn't? Is one graph better than the other?
   
 ```{r}
-
+Trips %>% 
+  mutate(hour_of_day = hour(sdate), 
+         minute_of_day = minute(sdate), 
+         time_of_day = hour_of_day + minute_of_day/60,
+         day_of_week = wday(sdate, label = TRUE),
+         weekend = if_else(day_of_week == c("Sat","Sun"),"weekend","weekday" )) %>% 
+  ggplot(aes(x = time_of_day))+
+  geom_density(aes(fill = weekend),color = NA, alpha = .5)+
+  facet_wrap(vars(client))+
+  labs(title = "Ridership according to types of riders",
+       y = "",
+       x = "")
 ```
+This graph compares the days of week and the specific times when each type of riders is active while the other one lets know us the types of riders a weekday or a weekend can expect. Because they tell us different information, no one graph is better than the other.
+  
   
 ### Spatial patterns
 
   15. Use the latitude and longitude variables in `Stations` to make a visualization of the total number of departures from each station in the `Trips` data. Use either color or size to show the variation in number of departures. We will improve this plot next week when we learn about maps!
   
-```{r}
 
-```
+```{r}
+Trips %>% 
+  left_join(Stations,
+            by = c("sstation" = "name")) %>% 
+  group_by(sstation, lat,long) %>% 
+  summarize(number_of_trips = n()) %>% 
+  ggplot(aes(x = lat, y = long, color = number_of_trips)) + 
+  geom_point()+
+  labs(title = "Total trips at each station by its latitude and longtitude",
+       y = "",
+       x = "")
+  
+```   
+  
+  
+  
   
   16. Only 14.4% of the trips in our data are carried out by casual users. Create a plot that shows which area(s) have stations with a much higher percentage of departures by casual users. What patterns do you notice? (Again, we'll improve this next week when we learn about maps).
+
   
 ```{r}
-
+Trips %>% 
+  group_by(sstation,client) %>% 
+  summarize(no_of_riders = n()) %>% 
+  pivot_wider(names_from = client,
+              values_from = no_of_riders) %>% 
+  mutate(percent_casual = Casual/(Casual + Registered)*100) %>% 
+  left_join(Stations,
+            by = c("sstation"="name")) %>% 
+  ggplot(aes(x = long, y = lat, color = percent_casual)) + 
+  geom_point(alpha = 0.5,
+             size = 0.5)+
+  labs(title = "Percentage of casual riders each station by its latitude and longtitude",
+       y = "",
+       x = "",
+       color = "percentage of casual riders")
 ```
   
 **DID YOU REMEMBER TO GO BACK AND CHANGE THIS SET OF EXERCISES TO THE LARGER DATASET? IF NOT, DO THAT NOW.**
@@ -312,24 +391,86 @@ In this section, we'll use the data from 2022-02-01 Tidy Tuesday. If you didn't 
   17. The final product of this exercise will be a graph that has breed on the y-axis and the sum of the numeric ratings in the `breed_traits` dataset on the x-axis, with a dot for each rating. First, create a new dataset called `breed_traits_total` that has two variables -- `Breed` and `total_rating`. The `total_rating` variable is the sum of the numeric ratings in the `breed_traits` dataset (we'll use this dataset again in the next problem). Then, create the graph just described. Omit Breeds with a `total_rating` of 0 and order the Breeds from highest to lowest ranked. You may want to adjust the `fig.height` and `fig.width` arguments inside the code chunk options (eg. `{r, fig.height=8, fig.width=4}`) so you can see things more clearly - check this after you knit the file to assure it looks like what you expected.
 
 ```{r}
-
+breed_traits_total <- breed_traits %>% 
+  pivot_longer(-c("Breed","Coat Type","Coat Length"),
+               names_to = "traits",
+               values_to = "rating") %>% 
+  select(-c("Coat Type","Coat Length")) %>% 
+  group_by(Breed) %>% 
+  summarize(total_rating = sum(rating)) %>% 
+  filter(total_rating >0) %>% 
+  arrange(desc(total_rating))
+breed_traits_total
 ```
 
-  18. The final product of this exercise will be a graph with the top-20 dogs in total ratings (from previous problem) on the y-axis, year on the x-axis, and points colored by each breed's ranking for that year (from the `breed_rank_all` dataset). The points within each breed will be connected by a line, and the breeds should be arranged from the highest median rank to lowest median rank ("highest" is actually the smallest numer, eg. 1 = best). After you're finished, think of AT LEAST one thing you could you do to make this graph better. HINTS: 1. Start with the `breed_rank_all` dataset and pivot it so year is a variable. 2. Use the `separate()` function to get year alone, and there's an extra argument in that function that can make it numeric. 3. For both datasets used, you'll need to `str_squish()` Breed before joining. 
+```{r, fig.height=8, fig.width=4}
+breed_traits_total %>% 
+  ggplot(aes(y = fct_reorder(Breed, total_rating), x = total_rating))+
+  geom_point()+
+  labs(title = "Total ratings of each dog breed",
+       x = "",
+       y = "")
+```
+
+  18. The final product of this exercise will be a graph with the top-20 dogs in total ratings (from previous problem) on the y-axis, year on the x-axis, and points colored by each breed's ranking for that year (from the `breed_rank_all` dataset). The points within each breed will be connected by a line, and the breeds should be arranged from the highest median rank to lowest median rank ("highest" is actually the smallest numer, eg. 1 = best). After you're finished, think of AT LEAST one thing you could do to make this graph better. HINTS: 1. Start with the `breed_rank_all` dataset and pivot it so year is a variable. 2. Use the `separate()` function to get year alone, and there's an extra argument in that function that can make it numeric. 3. For both datasets used, you'll need to `str_squish()` Breed before joining. 
   
 ```{r}
+breed_traits_total_top_20 <- breed_traits_total %>% 
+    slice_max(total_rating, n = 20) 
 
+breed_rank_all_2.0 <- breed_rank_all%>%
+  mutate(breed = str_squish(Breed)) %>% 
+  pivot_longer(cols= `2013 Rank`:`2020 Rank`,
+               names_to = "year of rank",
+               values_to = "rank") %>% 
+  separate(`year of rank`,
+           into = c("year","something"),
+           convert = TRUE,
+           remove = FALSE) 
+
+breed_traits_total_top_20 %>% 
+  mutate(breed = str_squish(Breed)) %>% 
+ left_join(breed_rank_all_2.0,
+           by = "breed") %>% 
+  ggplot(aes(y = fct_rev(fct_reorder(breed,rank,median)), x = year, color = rank))+
+  geom_point()+
+  geom_line()+
+   labs(title = "Rank of top 20 dog breeds by total ratings throughout the years",
+       x = "",
+       y = "")
 ```
+  
   
   19. Create your own! Requirements: use a `join` or `pivot` function (or both, if you'd like), a `str_XXX()` function, and a `fct_XXX()` function to create a graph using any of the dog datasets. One suggestion is to try to improve the graph you created for the Tidy Tuesday assignment. If you want an extra challenge, find a way to use the dog images in the `breed_rank_all` file - check out the `ggimage` library and [this resource](https://wilkelab.org/ggtext/) for putting images as labels.
   
 ```{r}
-
+breed_traits %>% 
+  pivot_longer(-c("Breed","Coat Type","Coat Length"),
+               names_to = "traits",
+               values_to = "rating") %>% 
+  mutate(coat_type = str_to_lower(`Coat Type`)) %>% 
+  group_by(Breed, coat_type) %>% 
+  summarize(total_rating = sum(rating)) %>% 
+  filter(total_rating >0) %>% 
+  group_by( coat_type) %>% 
+  summarize(`Average rating` = mean(total_rating)) %>% 
+  ggplot(aes(y= fct_reorder(coat_type,`Average rating`), x = `Average rating`))+
+  geom_col(fill = "lightblue")+
+   labs(title = "Each Coat Type and its Average rating ",
+       x = "Average rating",
+       y = "")+
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_rect(fill = "ivory1", color = NA),
+        plot.background = element_rect(fill = "ivory1", color = NA))
+  
 ```
   
 ## GitHub link
 
   20. Below, provide a link to your GitHub page with this set of Weekly Exercises. Specifically, if the name of the file is 03_exercises.Rmd, provide a link to the 03_exercises.md file, which is the one that will be most readable on GitHub.
+
+[Tam's 3rd weekely exercise](https://github.com/Tam-Ngn/Weekly-exercise-3)
 
 ## Challenge problem! 
 
